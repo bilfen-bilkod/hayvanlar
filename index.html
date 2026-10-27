@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hayvanat Bahçesi Kodlama Macerası</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Fredoka (Çocuk dostu yuvarlak font) -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tone.js (Ses Efektleri İçin) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Canvas Confetti (Kutlama Konfetisi) -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Fredoka', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow-x: hidden;
+        }
+
+        /* Arkaplan Deseni */
+        .zoo-bg {
+            background-color: #ecfccb;
+            background-image: radial-gradient(#bef264 2px, transparent 2px), radial-gradient(#a3e635 2px, #ecfccb 2px);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+        }
+
+        /* 3D Buton Efektleri */
+        .btn-3d {
+            transition: all 0.1s ease;
+            position: relative;
+            top: 0;
+        }
+        .btn-3d:active:not(:disabled) {
+            top: 5px;
+            box-shadow: 0 0px 0 0 transparent !important;
+        }
+
+        /* Harita Alan Kartları Animasyonu */
+        .zone-card {
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+        }
+        .zone-card:hover {
+            transform: translateY(-8px) scale(1.03);
+        }
+        .zone-card:active {
+            transform: translateY(-2px) scale(0.98);
+        }
+
+        /* Yüzen Animasyonlar */
+        @keyframes floatSlow {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-8px) rotate(3deg); }
+        }
+        .animate-float {
+            animation: floatSlow 3s ease-in-out infinite;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.12); }
+        }
+        .animate-target {
+            animation: pulseGlow 1.8s ease-in-out infinite;
+        }
+
+        @keyframes shakeError {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px) rotate(-6deg); }
+            40%, 80% { transform: translateX(8px) rotate(6deg); }
+        }
+        .animate-shake {
+            animation: shakeError 0.45s ease-in-out;
+        }
+
+        @keyframes hopMove {
+            0% { transform: scale(1) translateY(0); }
+            50% { transform: scale(1.25) translateY(-12px); }
+            100% { transform: scale(1) translateY(0); }
+        }
+        .animate-hop {
+            animation: hopMove 0.35s ease-in-out;
+        }
+
+        /* Özel Kaydırma Çubuğu */
+        ::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="zoo-bg min-h-screen flex flex-col justify-between text-slate-800">
+
+    <!-- ÜST BİLGİ ÇUBUĞU (HEADER) -->
+    <header class="bg-white/95 backdrop-blur-md border-b-4 border-lime-400 px-3 sm:px-6 py-2.5 shadow-md sticky top-0 z-30">
+        <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <!-- Logo & Başlık -->
+            <div class="flex items-center gap-2 sm:gap-3 cursor-pointer" onclick="showMapScreen()">
+                <div class="bg-amber-400 p-2 rounded-2xl shadow-inner border-2 border-amber-500 text-2xl sm:text-3xl animate-float">
+                    🦁
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-2xl font-bold text-emerald-800 tracking-wide leading-tight">
+                        Hayvanat Bahçesi Kodlama
+                    </h1>
+                    <p class="text-xs sm:text-sm text-emerald-600 font-medium hidden sm:block">
+                        Sevimli dostlarımızı hedeflerine ulaştır!
+                    </p>
+                </div>
+            </div>
+
+            <!-- Sağ Kontroller: Yıldız Sayacı & Ses -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <div class="bg-amber-100 border-2 border-amber-400 px-3 sm:px-4 py-1.5 rounded-2xl flex items-center gap-2 shadow-sm">
+                    <span class="text-xl sm:text-2xl">⭐</span>
+                    <span id="star-counter" class="text-base sm:text-xl font-bold text-amber-800">0 / 5</span>
+                </div>
+
+                <button id="sound-btn" onclick="toggleSound()" class="btn-3d bg-sky-400 hover:bg-sky-500 text-white border-2 border-sky-600 p-2 sm:px-3.5 sm:py-1.5 rounded-2xl font-bold text-lg sm:text-xl shadow-[0_4px_0_0_#0284c7] flex items-center gap-1" title="Sesi Aç/Kapat">
+                    <span id="sound-icon">🔊</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ANA İÇERİK ALANI -->
+    <main class="flex-grow flex items-center justify-center p-3 sm:p-6">
+        <div class="w-full max-w-6xl">
+
+            <!-- ========================================== -->
+            <!-- 1. EKRAN: HAYVANAT BAHÇESİ HARİTASI        -->
+            <!-- ========================================== -->
+            <section id="map-screen" class="w-full transition-all duration-300">
+                <!-- Harita Üst Karşılama Bannerı -->
+                <div class="bg-white/95 border-4 border-emerald-400 rounded-3xl p-4 sm:p-6 mb-5 shadow-lg text-center relative overflow-hidden">
+                    <div class="absolute -left-4 -bottom-4 text-6xl opacity-20 pointer-events-none">🌴</div>
+                    <div class="absolute -right-4 -top-4 text-6xl opacity-20 pointer-events-none">🦒</div>
+                    <h2 class="text-xl sm:text-3xl font-bold text-emerald-800 mb-1">
+                        🗺️ Hayvanat Bahçesi Haritası
+                    </h2>
+                    <p class="text-sm sm:text-lg text-slate-600 font-medium">
+                        Yardım etmek istediğin hayvanın bölümüne tıkla ve kodlamaya başla!
+                    </p>
+                </div>
+
+                <!-- Harita Alanı (Büyük Resim Görünümlü İnteraktif Park) -->
+                <div class="relative bg-gradient-to-b from-lime-200 via-emerald-100 to-amber-100 border-8 border-amber-700 rounded-[2.5rem] p-4 sm:p-8 shadow-2xl overflow-hidden">
+                    
+                    <!-- Dekoratif Patika Yol Çizgisi (SVG Arkaplan) -->
+                    <svg class="absolute inset-0 w-full h-full pointer-events-none opacity-35" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+                        <path d="M 100,80 Q 400,20 600,180 T 950,300 Q 600,450 200,380" fill="none" stroke="#d97706" stroke-width="28" stroke-dasharray="25,20" stroke-linecap="round"/>
+                    </svg>
+
+                    <!-- Dekoratif Çevre Öğeleri -->
+                    <div class="flex justify-between items-center mb-4 px-2 text-2xl sm:text-3xl opacity-80 pointer-events-none">
+                        <span>🌳🌻🌳</span>
+                        <span class="bg-amber-700 text-amber-100 text-xs sm:text-sm px-4 py-1 rounded-full font-bold shadow">🚪 GİRİŞ KAPISI</span>
+                        <span>🌳🌷🌳</span>
+                    </div>
+
+                    <!-- Hayvan Bölümleri Izgarası (5 Bölüm) -->
+                    <div id="zones-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 relative z-10">
+                        <!-- JS ile dinamik olarak doldurulacak -->
+                    </div>
+
+                    <!-- Harita Alt Süslemeler -->
+                    <div class="flex justify-around items-center mt-6 text-xl sm:text-2xl opacity-75 pointer-events-none">
+                        <span>⛲</span>
+                        <span>🌺🌿</span>
+                        <span>🚂💨</span>
+                        <span>🌿🌼</span>
+                        <span>🍦</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ========================================== -->
+            <!-- 2. EKRAN: KODLAMA OYUN EKRANI              -->
+            <!-- ========================================== -->
+            <section id="game-screen" class="hidden w-full transition-all duration-300">
+                
+                <!-- Üst Bar: Haritaya Dön & Bölüm Bilgisi -->
+                <div class="flex flex-wrap items-center justify-between gap-3 bg-white/95 border-4 border-emerald-400 rounded-3xl p-3 sm:p-4 mb-4 shadow-md">
+                    <button onclick="showMapScreen()" class="btn-3d bg-amber-500 hover:bg-amber-600 text-white border-2 border-amber-700 px-4 py-2 rounded-2xl font-bold text-base sm:text-lg shadow-[0_4px_0_0_#b45309] flex items-center gap-2">
+                        <span>🗺️</span> Haritaya Dön
+                    </button>
+
+                    <div class="flex items-center gap-2 sm:gap-3">
+                        <span id="level-badge-emoji" class="text-3xl sm:text-4xl">🦁</span>
+                        <div class="text-left">
+                            <h2 id="level-title" class="text-lg sm:text-2xl font-bold text-slate-800 leading-tight">Aslan Krallığı</h2>
+                            <p id="level-mission" class="text-xs sm:text-sm text-slate-600 font-medium">Aslanı lezzetli etine ulaştır!</p>
+                        </div>
+                    </div>
+
+                    <button onclick="showHint()" class="btn-3d bg-purple-500 hover:bg-purple-600 text-white border-2 border-purple-700 px-3 sm:px-4 py-2 rounded-2xl font-bold text-sm sm:text-base shadow-[0_4px_0_0_#6b21a8] flex items-center gap-1.5">
+                        <span>💡</span> İpucu
+                    </button>
+                </div>
+
+                <!-- Oyun Alanı: Sol Taraf Grid Haritası, Sağ Taraf Kodlama Paneli -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
+                    
+                    <!-- SOL PANEL: 5x5 İNTERAKTİF IZGARA (GRID) -->
+                    <div class="lg:col-span-7 bg-white/95 border-4 rounded-3xl p-3 sm:p-5 shadow-xl flex flex-col items-center" id="grid-panel-wrapper">
+                        
+                        <!-- Durum Mesajı Bandı -->
+                        <div id="status-banner" class="w-full bg-slate-100 border-2 border-slate-300 rounded-2xl px-4 py-2.5 mb-3 text-center font-bold text-sm sm:text-lg text-slate-700 flex items-center justify-center gap-2 transition-colors duration-300">
+                            <span>👇</span> Yön oklarına tıklayarak komutlarını ekle!
+                        </div>
+
+                        <!-- 5x5 Oyun Izgarası -->
+                        <div id="game-grid" class="w-full max-w-[420px] aspect-square grid grid-cols-5 grid-rows-5 gap-1.5 sm:gap-2.5 p-2.5 sm:p-3.5 rounded-3xl border-4 shadow-inner relative">
+                            <!-- Hücreler JS ile oluşturulacak -->
+                        </div>
+
+                        <!-- Harita Açıklaması (Legend) -->
+                        <div class="flex flex-wrap items-center justify-center gap-4 mt-3 text-xs sm:text-sm font-semibold text-slate-600 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-200">
+                            <div class="flex items-center gap-1.5">
+                                <span id="legend-animal" class="text-lg">🦁</span> Karakterin
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <span id="legend-target" class="text-lg">🥩</span> Hedef
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <span id="legend-obstacle" class="text-lg">🪨</span> Engel (Geçilemez)
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SAĞ PANEL: KOMUT BUTONLARI VE ALGORİTMA KUYRUĞU -->
+                    <div class="lg:col-span-5 flex flex-col gap-4">
+                        
+                        <!-- 1. Kutu: Yön Okları (Komut Ekleme) -->
+                        <div class="bg-white/95 border-4 border-sky-400 rounded-3xl p-4 sm:p-5 shadow-xl">
+                            <h3 class="text-base sm:text-xl font-bold text-sky-900 mb-3 flex items-center justify-between">
+                                <span>🎮 1. Yön Komutu Seç</span>
+                                <span class="text-xs bg-sky-100 text-sky-700 px-2.5 py-1 rounded-full">Tıkla ve Ekle</span>
+                            </h3>
+
+                            <!-- Yön Butonları Düzeni (Artı / D-Pad veya 4 Büyük Kart) -->
+                            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2.5 sm:gap-3">
+                                <button onclick="addCommand('UP')" id="btn-up" class="btn-3d bg-sky-500 hover:bg-sky-400 text-white border-b-4 border-sky-700 p-3 sm:p-3.5 rounded-2xl font-bold flex flex-col items-center justify-center gap-1 shadow-[0_5px_0_0_#0369a1]">
+                                    <span class="text-2xl sm:text-3xl bg-white/20 w-11 h-11 rounded-xl flex items-center justify-center">⬆️</span>
+                                    <span class="text-sm sm:text-base tracking-wide">YUKARI</span>
+                                </button>
+
+                                <button onclick="addCommand('DOWN')" id="btn-down" class="btn-3d bg-indigo-500 hover:bg-indigo-400 text-white border-b-4 border-indigo-700 p-3 sm:p-3.5 rounded-2xl font-bold flex flex-col items-center justify-center gap-1 shadow-[0_5px_0_0_#4338ca]">
+                                    <span class="text-2xl sm:text-3xl bg-white/20 w-11 h-11 rounded-xl flex items-center justify-center">⬇️</span>
+                                    <span class="text-sm sm:text-base tracking-wide">AŞAĞI</span>
+                                </button>
+
+                                <button onclick="addCommand('LEFT')" id="btn-left" class="btn-3d bg-amber-500 hover:bg-amber-400 text-white border-b-4 border-amber-700 p-3 sm:p-3.5 rounded-2xl font-bold flex flex-col items-center justify-center gap-1 shadow-[0_5px_0_0_#b45309]">
+                                    <span class="text-2xl sm:text-3xl bg-white/20 w-11 h-11 rounded-xl flex items-center justify-center">⬅️</span>
+                                    <span class="text-sm sm:text-base tracking-wide">SOLA</span>
+                                </button>
+
+                                <button onclick="addCommand('RIGHT')" id="btn-right" class="btn-3d bg-rose-500 hover:bg-rose-400 text-white border-b-4 border-rose-700 p-3 sm:p-3.5 rounded-2xl font-bold flex flex-col items-center justify-center gap-1 shadow-[0_5px_0_0_#be123c]">
+                                    <span class="text-2xl sm:text-3xl bg-white/20 w-11 h-11 rounded-xl flex items-center justify-center">➡️</span>
+                                    <span class="text-sm sm:text-base tracking-wide">SAĞA</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 2. Kutu: Oluşturulan Kod Dizisi (Algoritma) -->
+                        <div class="bg-white/95 border-4 border-amber-400 rounded-3xl p-4 sm:p-5 shadow-xl flex flex-col">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="text-base sm:text-xl font-bold text-amber-900 flex items-center gap-1.5">
+                                    <span>🧩 2. Kod Dizim</span>
+                                </h3>
+                                <div class="flex items-center gap-2">
+                                    <span id="step-count-badge" class="text-xs sm:text-sm font-bold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full border border-amber-300">
+                                        0 Adım
+                                    </span>
+                                    <button onclick="removeLastCommand()" id="btn-undo" class="text-xs sm:text-sm bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-2.5 py-1 rounded-xl transition" title="Son komutu sil">
+                                        ⌫ Geri Al
+                                    </button>
+                                </div>
+                            </div>
+
+                            <p class="text-xs text-slate-500 mb-2">
+                                İpucu: Silmek istediğin bir okun üzerine tıklayabilirsin.
+                            </p>
+
+                            <!-- Komut Bloklarının Dizildiği Alan -->
+                            <div id="command-queue" class="min-h-[110px] max-h-[170px] overflow-y-auto bg-amber-50/80 border-2 border-dashed border-amber-300 rounded-2xl p-3 flex flex-wrap items-center content-start gap-2 mb-4">
+                                <!-- JS ile komut blokları eklenecek -->
+                            </div>
+
+                            <!-- Çalıştır ve Temizle Butonları -->
+                            <div class="grid grid-cols-12 gap-2.5">
+                                <button onclick="runCommands()" id="btn-run" class="col-span-8 btn-3d bg-emerald-500 hover:bg-emerald-400 text-white border-b-4 border-emerald-700 py-3.5 px-4 rounded-2xl font-bold text-lg sm:text-xl shadow-[0_5px_0_0_#047857] flex items-center justify-center gap-2">
+                                    <span>▶️</span> ÇALIŞTIR
+                                </button>
+
+                                <button onclick="clearCommands()" id="btn-clear" class="col-span-4 btn-3d bg-rose-500 hover:bg-rose-400 text-white border-b-4 border-rose-700 py-3.5 px-2 rounded-2xl font-bold text-sm sm:text-base shadow-[0_5px_0_0_#be123c] flex items-center justify-center gap-1">
+                                    <span>🗑️</span> Temizle
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- ========================================== -->
+    <!-- KUTLAMA MODALI (HEDEFE ULAŞINCA AÇILIR)    -->
+    <!-- ========================================== -->
+    <div id="win-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white border-8 border-amber-400 rounded-[2.5rem] max-w-md w-full p-6 sm:p-8 text-center shadow-2xl transform transition-all scale-100 relative overflow-hidden">
+            
+            <!-- Yıldızlar -->
+            <div class="flex justify-center gap-2 text-4xl sm:text-5xl mb-3 animate-bounce">
+                <span>⭐</span><span>🌟</span><span>⭐</span>
+            </div>
+
+            <!-- Hayvan & Hedef Görseli -->
+            <div class="bg-amber-50 border-4 border-amber-200 rounded-3xl py-4 px-6 inline-flex items-center gap-4 text-5xl sm:text-6xl mb-4 shadow-inner">
+                <span id="modal-animal">🦁</span>
+                <span class="text-3xl">❤️</span>
+                <span id="modal-target">🥩</span>
+            </div>
+
+            <h3 id="modal-title" class="text-2xl sm:text-3xl font-bold text-emerald-700 mb-2">
+                Harika İş Çıkardın!
+            </h3>
+            <p id="modal-message" class="text-base sm:text-lg text-slate-600 font-medium mb-6">
+                Aslan karnını doyurdu ve çok mutlu oldu! Şimdi haritadaki diğer hayvanlara da yardım edelim mi?
+            </p>
+
+            <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                <button onclick="replayCurrentLevel()" class="btn-3d bg-sky-500 hover:bg-sky-400 text-white border-b-4 border-sky-700 py-3 px-5 rounded-2xl font-bold text-base sm:text-lg shadow-[0_4px_0_0_#0369a1] flex-1">
+                    🔄 Tekrar Oyna
+                </button>
+                <button onclick="closeModalAndGoMap()" class="btn-3d bg-emerald-500 hover:bg-emerald-400 text-white border-b-4 border-emerald-700 py-3 px-5 rounded-2xl font-bold text-base sm:text-lg shadow-[0_4px_0_0_#047857] flex-1">
+                    🗺️ Diğer Hayvanlar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ALT BİLGİ (FOOTER) -->
+    <footer class="text-center py-3 text-xs sm:text-sm font-semibold text-emerald-800/70">
+        🌟 Çocuklar İçin Algoritma ve Kodlama Oyunu • Yön Oklarıyla Hedefe Ulaş!
+    </footer>
+
+    <!-- ========================================== -->
+    <!-- OYUN MANTIĞI VE JAVASCRIPT KODLARI         -->
+    <!-- ========================================== -->
+    <script>
+        /* ----------------------------------------------------------
+         * 1. BÖLÜM VERİLERİ (HAYVANAT BAHÇESİ ALANLARI)
+         * ---------------------------------------------------------- */
+        const ZONES = [
+            {
+                id: 'lion',
+                name: 'Aslan Krallığı',
+                animalName: 'Aslan Leo',
+                animalEmoji: '🦁',
+                targetName: 'Lezzetli Et',
+                targetEmoji: '🥩',
+                obstacleEmoji: '🪨',
+                obstacleName: 'Büyük Kaya',
+                decorEmoji: '🌾',
+                missionText: 'Aslan Leo acıkmış! Kayalara çarpmadan onu etine ulaştır.',
+                winText: 'Harikasın! Aslan Leo lezzetli etine kavuştu ve kükreyerek teşekkür etti!',
+                cardBg: 'from-amber-100 to-orange-200',
+                cardBorder: 'border-amber-500',
+                btnColor: 'bg-amber-500',
+                gridBg: 'bg-amber-100 border-amber-400',
+                cellBg: 'bg-amber-50/90 border-amber-200',
+                start: { r: 0, c: 0 },
+                target: { r: 2, c: 3 },
+                obstacles: [
+                    { r: 0, c: 2 },
+                    { r: 1, c: 2 },
+                    { r: 3, c: 1 }
+                ],
+                hintPath: ['DOWN', 'DOWN', 'RIGHT', 'RIGHT', 'RIGHT']
+            },
+            {
+                id: 'monkey',
+                name: 'Maymun Ormanı',
+                animalName: 'Maymun Miki',
+                animalEmoji: '🐵',
+                targetName: 'Sarı Muz',
+                targetEmoji: '🍌',
+                obstacleEmoji: '🌳',
+                obstacleName: 'Sık Ağaç',
+                decorEmoji: '🌿',
+                missionText: 'Maymun Miki muzunu çok seviyor! Ağaçların etrafından dolaşarak muza ulaş.',
+                winText: 'Süpersin! Maymun Miki muzunu afiyetle yedi ve dallarda neşeyle zıpladı!',
+                cardBg: 'from-emerald-100 to-green-200',
+                cardBorder: 'border-emerald-500',
+                btnColor: 'bg-emerald-500',
+                gridBg: 'bg-emerald-100 border-emerald-400',
+                cellBg: 'bg-emerald-50/90 border-emerald-200',
+                start: { r: 0, c: 0 },
+                target: { r: 3, c: 3 },
+                obstacles: [
+                    { r: 1, c: 0 },
+                    { r: 1, c: 1 },
+                    { r: 2, c: 3 },
+                    { r: 3, c: 1 }
+                ],
+                hintPath: ['RIGHT', 'RIGHT', 'DOWN', 'DOWN', 'DOWN', 'RIGHT']
+            },
+            {
+                id: 'penguin',
+                name: 'Penguen Buzulu',
+                animalName: 'Penguen Pingu',
+                animalEmoji: '🐧',
+                targetName: 'Taze Balık',
+                targetEmoji: '🐟',
+                obstacleEmoji: '🧊',
+                obstacleName: 'Buz Küpü',
+                decorEmoji: '❄️',
+                missionText: 'Penguen Pingu buzların arasında balığa ulaşmak istiyor. Ona yol göster!',
+                winText: 'Muhteşem! Penguen Pingu balığını yakaladı ve buz üstünde neşeyle kaydı!',
+                cardBg: 'from-sky-100 to-cyan-200',
+                cardBorder: 'border-sky-500',
+                btnColor: 'bg-sky-500',
+                gridBg: 'bg-sky-100 border-sky-400',
+                cellBg: 'bg-sky-50/90 border-sky-200',
+                start: { r: 4, c: 0 },
+                target: { r: 0, c: 4 },
+                obstacles: [
+                    { r: 3, c: 0 },
+                    { r: 3, c: 2 },
+                    { r: 1, c: 2 },
+                    { r: 1, c: 3 },
+                    { r: 2, c: 4 }
+                ],
+                hintPath: ['RIGHT', 'UP', 'UP', 'UP', 'UP', 'RIGHT', 'RIGHT', 'RIGHT']
+            },
+            {
+                id: 'elephant',
+                name: 'Fil Vadisi',
+                animalName: 'Yavru Fil Fifi',
+                animalEmoji: '🐘',
+                targetName: 'Serin Göl',
+                targetEmoji: '💧',
+                obstacleEmoji: '🌵',
+                obstacleName: 'Dikenli Kaktüs',
+                decorEmoji: '🪴',
+                missionText: 'Hava çok sıcak! Yavru Fil Fifi\'yi dikenli kaktüslere değmeden serin suya götür.',
+                winText: 'Harika! Fil Fifi hortumuyla serin suları havaya püskürterek serinledi!',
+                cardBg: 'from-purple-100 to-indigo-200',
+                cardBorder: 'border-purple-500',
+                btnColor: 'bg-purple-500',
+                gridBg: 'bg-purple-100 border-purple-400',
+                cellBg: 'bg-purple-50/90 border-purple-200',
+                start: { r: 0, c: 4 },
+                target: { r: 4, c: 0 },
+                obstacles: [
+                    { r: 1, c: 4 },
+                    { r: 1, c: 3 },
+                    { r: 2, c: 1 },
+                    { r: 3, c: 1 },
+                    { r: 3, c: 3 }
+                ],
+                hintPath: ['LEFT', 'LEFT', 'DOWN', 'DOWN', 'DOWN', 'DOWN', 'LEFT', 'LEFT']
+            },
+            {
+                id: 'rabbit',
+                name: 'Tavşan Bahçesi',
+                animalName: 'Tavşan Pamuk',
+                animalEmoji: '🐰',
+                targetName: 'Kütür Havuç',
+                targetEmoji: '🥕',
+                obstacleEmoji: '🪵',
+                obstacleName: 'Odun Kütüğü',
+                decorEmoji: '🌷',
+                missionText: 'Tavşan Pamuk bahçedeki kütüklerin arasından geçip havucuna ulaşmak istiyor!',
+                winText: 'Tebrikler! Tavşan Pamuk havucunu kıtır kıtır yedi ve kulaklarını salladı!',
+                cardBg: 'from-rose-100 to-pink-200',
+                cardBorder: 'border-rose-500',
+                btnColor: 'bg-rose-500',
+                gridBg: 'bg-rose-100 border-rose-400',
+                cellBg: 'bg-rose-50/90 border-rose-200',
+                start: { r: 2, c: 0 },
+                target: { r: 2, c: 4 },
+                obstacles: [
+                    { r: 1, c: 1 },
+                    { r: 2, c: 1 },
+                    { r: 3, c: 1 },
+                    { r: 0, c: 3 },
+                    { r: 1, c: 3 },
+                    { r: 2, c: 3 }
+                ],
+                hintPath: ['UP', 'UP', 'RIGHT', 'RIGHT', 'DOWN', 'DOWN', 'DOWN', 'RIGHT', 'RIGHT', 'UP']
+            }
+        ];
+
+        /* Yön Tanımları */
+        const DIRECTIONS = {
+            UP:    { dr: -1, dc: 0,  emoji: '⬆️', label: 'Yukarı', color: 'bg-sky-500 border-sky-700' },
+            DOWN:  { dr: 1,  dc: 0,  emoji: '⬇️', label: 'Aşağı',  color: 'bg-indigo-500 border-indigo-700' },
+            LEFT:  { dr: 0,  dc: -1, emoji: '⬅️', label: 'Sola',   color: 'bg-amber-500 border-amber-700' },
+            RIGHT: { dr: 0,  dc: 1,  emoji: '➡️', label: 'Sağa',   color: 'bg-rose-500 border-rose-700' }
+        };
+
+        /* ----------------------------------------------------------
+         * 2. OYUN DURUMU (STATE)
+         * ---------------------------------------------------------- */
+        let completedZones = new Set();
+        let currentZone = null;
+        let animalPos = { r: 0, c: 0 };
+        let commandQueue = [];
+        let isRunning = false;
+        let soundEnabled = true;
+        let synth = null;
+
+        /* ----------------------------------------------------------
+         * 3. SES EFEKTLERİ (TONE.JS)
+         * ---------------------------------------------------------- */
+        function initAudio() {
+            if (!synth && typeof Tone !== 'undefined') {
+                synth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: 'triangle' },
+                    envelope: { attack: 0.02, decay: 0.1, sustain: 0.1, release: 0.3 }
+                }).toDestination();
+                synth.volume.value = -8;
+            }
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                initAudio();
+                if (Tone.context.state !== 'running') {
+                    Tone.context.resume();
+                }
+                const now = Tone.now();
+                if (type === 'click') {
+                    synth.triggerAttackRelease('C5', '16n', now);
+                } else if (type === 'step') {
+                    synth.triggerAttackRelease('E5', '16n', now);
+                } else if (type === 'delete') {
+                    synth.triggerAttackRelease('A4', '16n', now);
+                } else if (type === 'error') {
+                    synth.triggerAttackRelease(['C3', 'F#3'], '8n', now);
+                } else if (type === 'win') {
+                    synth.triggerAttackRelease('C5', '16n', now);
+                    synth.triggerAttackRelease('E5', '16n', now + 0.12);
+                    synth.triggerAttackRelease('G5', '16n', now + 0.24);
+                    synth.triggerAttackRelease('C6', '4n', now + 0.36);
+                }
+            } catch (e) {
+                // Ses hatası olursa sessizce devam et
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('sound-icon').textContent = soundEnabled ? '🔊' : '🔇';
+            if (soundEnabled) playSound('click');
+        }
+
+        /* ----------------------------------------------------------
+         * 4. HARİTA EKRANI OLUŞTURMA VE GEÇİŞLER
+         * ---------------------------------------------------------- */
+        function renderMapZones() {
+            const container = document.getElementById('zones-container');
+            container.innerHTML = '';
+
+            ZONES.forEach((zone, index) => {
+                const isDone = completedZones.has(zone.id);
+                const card = document.createElement('div');
+                card.className = `zone-card cursor-pointer bg-gradient-to-br ${zone.cardBg} border-4 ${zone.cardBorder} rounded-3xl p-4 sm:p-5 shadow-lg relative flex flex-col justify-between`;
+                card.onclick = () => selectZone(zone.id);
+
+                card.innerHTML = `
+                    <!-- Üst Rozet: Bölüm No & Tamamlandı Yıldızı -->
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="bg-white/80 text-slate-700 font-bold text-xs sm:text-sm px-3 py-1 rounded-full shadow-sm">
+                            Bölüm ${index + 1}
+                        </span>
+                        ${isDone 
+                            ? `<span class="bg-emerald-500 text-white font-bold text-xs sm:text-sm px-3 py-1 rounded-full shadow flex items-center gap-1 animate-bounce">
+                                 ✅ Tamamlandı ⭐
+                               </span>` 
+                            : `<span class="bg-white/70 text-slate-500 font-semibold text-xs px-2.5 py-1 rounded-full">
+                                 ⭐ Bekliyor
+                               </span>`
+                        }
+                    </div>
+
+                    <!-- Orta Görsel: Hayvan ve Hedefi -->
+                    <div class="my-3 flex items-center justify-center gap-3">
+                        <div class="text-5xl sm:text-6xl filter drop-shadow-md animate-float" style="animation-delay: ${index * 0.2}s">
+                            ${zone.animalEmoji}
+                        </div>
+                        <div class="text-2xl text-slate-400 font-bold">➔</div>
+                        <div class="text-3xl sm:text-4xl bg-white/70 p-2.5 rounded-2xl border-2 border-white shadow-sm">
+                            ${zone.targetEmoji}
+                        </div>
+                    </div>
+
+                    <!-- Alt Başlık ve Oyna Butonu -->
+                    <div class="text-center mt-1">
+                        <h3 class="text-lg sm:text-xl font-bold text-slate-800 mb-1">${zone.name}</h3>
+                        <p class="text-xs sm:text-sm text-slate-600 font-medium mb-3 line-clamp-1">${zone.animalName} & ${zone.targetName}</p>
+                        <div class="${zone.btnColor} text-white font-bold py-2 px-4 rounded-2xl shadow-md inline-flex items-center gap-1.5 text-sm sm:text-base">
+                            <span>${isDone ? '🔄 Tekrar Oyna' : '▶️ Seç ve Kodla'}</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            // Yıldız Sayacını Güncelle
+            document.getElementById('star-counter').textContent = `${completedZones.size} / ${ZONES.length}`;
+        }
+
+        function showMapScreen() {
+            if (isRunning) return;
+            playSound('click');
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('map-screen').classList.remove('hidden');
+            renderMapZones();
+        }
+
+        function selectZone(zoneId) {
+            playSound('click');
+            currentZone = ZONES.find(z => z.id === zoneId);
+            if (!currentZone) return;
+
+            // Başlangıç durumunu sıfırla
+            animalPos = { ...currentZone.start };
+            commandQueue = [];
+            isRunning = false;
+
+            // Üst bilgileri güncelle
+            document.getElementById('level-badge-emoji').textContent = currentZone.animalEmoji;
+            document.getElementById('level-title').textContent = currentZone.name;
+            document.getElementById('level-mission').textContent = currentZone.missionText;
+
+            // Legend (Açıklama) güncelle
+            document.getElementById('legend-animal').textContent = currentZone.animalEmoji;
+            document.getElementById('legend-target').textContent = currentZone.targetEmoji;
+            document.getElementById('legend-obstacle').textContent = currentZone.obstacleEmoji;
+
+            // Izgara çerçeve rengi
+            const gridEl = document.getElementById('game-grid');
+            gridEl.className = `w-full max-w-[420px] aspect-square grid grid-cols-5 grid-rows-5 gap-1.5 sm:gap-2.5 p-2.5 sm:p-3.5 rounded-3xl border-4 shadow-inner relative ${currentZone.gridBg}`;
+
+            setStatusBanner('👇 Yön oklarına tıklayarak komutlarını ekle!', 'normal');
+            renderGrid();
+            renderCommandQueue();
+
+            // Ekran geçişi
+            document.getElementById('map-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+        }
+
+        /* ----------------------------------------------------------
+         * 5. 5x5 OYUN IZGARASI (GRID) ÇİZİMİ
+         * ---------------------------------------------------------- */
+        function renderGrid(activeOutcome = null) {
+            const gridEl = document.getElementById('game-grid');
+            gridEl.innerHTML = '';
+
+            for (let r = 0; r < 5; r++) {
+                for (let c = 0; c < 5; c++) {
+                    const cell = document.createElement('div');
+                    cell.id = `cell-${r}-${c}`;
+                    cell.className = `rounded-2xl border-2 ${currentZone.cellBg} flex items-center justify-center relative select-none transition-all duration-200 shadow-sm overflow-hidden`;
+
+                    const isAnimal = (animalPos.r === r && animalPos.c === c);
+                    const isTarget = (currentZone.target.r === r && currentZone.target.c === c);
+                    const isObstacle = currentZone.obstacles.some(o => o.r === r && o.c === c);
+                    const isStart = (currentZone.start.r === r && currentZone.start.c === c);
+
+                    // Başlangıç noktası işareti
+                    if (isStart && !isAnimal) {
+                        const startBadge = document.createElement('span');
+                        startBadge.className = 'text-xs font-bold text-slate-400 opacity-60';
+                        startBadge.textContent = '🚩';
+                        cell.appendChild(startBadge);
+                    }
+
+                    // Dekoratif zemin süsü (Boş hücrelerde hafif görünür)
+                    if (!isAnimal && !isTarget && !isObstacle && !isStart && ((r + c) % 3 === 0)) {
+                        const decor = document.createElement('span');
+                        decor.className = 'text-lg sm:text-xl opacity-20 pointer-events-none';
+                        decor.textContent = currentZone.decorEmoji;
+                        cell.appendChild(decor);
+                    }
+
+                    // Engel varsa
+                    if (isObstacle) {
+                        cell.classList.add('bg-slate-200/70');
+                        const obs = document.createElement('span');
+                        obs.className = 'text-2xl sm:text-4xl filter drop-shadow-sm';
+                        obs.textContent = currentZone.obstacleEmoji;
+                        cell.appendChild(obs);
+                    }
+
+                    // Hedef varsa (Hayvan henüz üstüne gelmediyse veya geldiyse)
+                    if (isTarget && !isAnimal) {
+                        const targetEl = document.createElement('span');
+                        targetEl.className = 'text-3xl sm:text-4xl animate-target filter drop-shadow-md';
+                        targetEl.textContent = currentZone.targetEmoji;
+                        cell.appendChild(targetEl);
+                    }
+
+                    // Hayvan karakteri buradaysa
+                    if (isAnimal) {
+                        cell.classList.add('ring-4', 'ring-amber-400', 'bg-white');
+                        const animalEl = document.createElement('span');
+                        let animClass = 'animate-hop';
+                        if (activeOutcome === 'error') animClass = 'animate-shake';
+                        animalEl.className = `text-3xl sm:text-5xl z-10 filter drop-shadow-md ${animClass}`;
+                        animalEl.textContent = isTarget ? `${currentZone.animalEmoji}` : currentZone.animalEmoji;
+                        cell.appendChild(animalEl);
+                    }
+
+                    gridEl.appendChild(cell);
+                }
+            }
+        }
+
+        /* ----------------------------------------------------------
+         * 6. KOMUT EKLEME, SİLME VE KUYRUK YÖNETİMİ
+         * ---------------------------------------------------------- */
+        function addCommand(dirKey) {
+            if (isRunning) return;
+            if (commandQueue.length >= 16) {
+                setStatusBanner('⚠️ En fazla 16 komut ekleyebilirsin!', 'warning');
+                playSound('error');
+                return;
+            }
+            playSound('click');
+            commandQueue.push(dirKey);
+            renderCommandQueue();
+            setStatusBanner('👍 Harika! Hazır olduğunda "ÇALIŞTIR" butonuna bas.', 'normal');
+        }
+
+        function removeCommandAt(index) {
+            if (isRunning) return;
+            playSound('delete');
+            commandQueue.splice(index, 1);
+            renderCommandQueue();
+        }
+
+        function removeLastCommand() {
+            if (isRunning || commandQueue.length === 0) return;
+            playSound('delete');
+            commandQueue.pop();
+            renderCommandQueue();
+        }
+
+        function clearCommands() {
+            if (isRunning) return;
+            playSound('delete');
+            commandQueue = [];
+            animalPos = { ...currentZone.start };
+            renderGrid();
+            renderCommandQueue();
+            setStatusBanner('🧹 Komutlar temizlendi! Yeni komutlarını ekleyebilirsin.', 'normal');
+        }
+
+        function renderCommandQueue(activeStepIndex = -1) {
+            const container = document.getElementById('command-queue');
+            const badge = document.getElementById('step-count-badge');
+            badge.textContent = `${commandQueue.length} Adım`;
+
+            container.innerHTML = '';
+
+            if (commandQueue.length === 0) {
+                container.innerHTML = `
+                    <div class="w-full h-full flex flex-col items-center justify-center text-slate-400 py-4">
+                        <span class="text-2xl mb-1">⬆️ ⬇️ ⬅️ ➡️</span>
+                        <span class="text-xs sm:text-sm font-semibold">Henüz komut eklemedin. Yukarıdaki oklara tıkla!</span>
+                    </div>
+                `;
+                return;
+            }
+
+            commandQueue.forEach((dirKey, idx) => {
+                const dir = DIRECTIONS[dirKey];
+                const chip = document.createElement('button');
+                const isCurrent = (idx === activeStepIndex);
+
+                chip.className = `
+                    ${dir.color} text-white border-b-4 px-2.5 py-1.5 rounded-xl font-bold text-sm sm:text-base 
+                    flex items-center gap-1 shadow-sm transition-all duration-150
+                    ${isCurrent ? 'ring-4 ring-yellow-300 scale-110 z-10' : 'hover:opacity-90'}
+                `;
+                chip.title = 'Silmek için tıkla';
+                chip.onclick = () => removeCommandAt(idx);
+
+                chip.innerHTML = `
+                    <span class="text-[11px] bg-black/20 px-1.5 py-0.5 rounded-md">${idx + 1}</span>
+                    <span class="text-lg">${dir.emoji}</span>
+                `;
+                container.appendChild(chip);
+            });
+        }
+
+        /* ----------------------------------------------------------
+         * 7. ALGORİTMAYI ÇALIŞTIRMA (ADIM ADIM HAREKET)
+         * ---------------------------------------------------------- */
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function setControlsDisabled(disabled) {
+            const ids = ['btn-up', 'btn-down', 'btn-left', 'btn-right', 'btn-run', 'btn-clear', 'btn-undo'];
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.disabled = disabled;
+                    if (disabled) {
+                        el.classList.add('opacity-60', 'cursor-not-allowed');
+                    } else {
+                        el.classList.remove('opacity-60', 'cursor-not-allowed');
+                    }
+                }
+            });
+        }
+
+        function setStatusBanner(text, type = 'normal') {
+            const banner = document.getElementById('status-banner');
+            banner.textContent = text;
+            banner.className = 'w-full border-2 rounded-2xl px-4 py-2.5 mb-3 text-center font-bold text-sm sm:text-lg flex items-center justify-center gap-2 transition-colors duration-300 ';
+            
+            if (type === 'error') {
+                banner.className += 'bg-rose-100 border-rose-400 text-rose-800';
+            } else if (type === 'success') {
+                banner.className += 'bg-emerald-100 border-emerald-400 text-emerald-800';
+            } else if (type === 'warning') {
+                banner.className += 'bg-amber-100 border-amber-400 text-amber-800';
+            } else {
+                banner.className += 'bg-slate-100 border-slate-300 text-slate-700';
+            }
+        }
+
+        async function runCommands() {
+            if (isRunning) return;
+
+            if (commandQueue.length === 0) {
+                playSound('error');
+                setStatusBanner('⚠️ Önce yön oklarına tıklayarak komut eklemelisin!', 'warning');
+                return;
+            }
+
+            isRunning = true;
+            setControlsDisabled(true);
+
+            // Başlangıç noktasına getir
+            animalPos = { ...currentZone.start };
+            renderGrid();
+            setStatusBanner(`🚀 ${currentZone.animalName} yola çıktı!`, 'normal');
+            await sleep(400);
+
+            let reachedTarget = false;
+            let hitError = false;
+
+            for (let i = 0; i < commandQueue.length; i++) {
+                const cmd = commandQueue[i];
+                const dir = DIRECTIONS[cmd];
+
+                // Aktif komutu vurgula
+                renderCommandQueue(i);
+
+                const nextR = animalPos.r + dir.dr;
+                const nextC = animalPos.c + dir.dc;
+
+                // 1. Harita dışına çıkma kontrolü
+                if (nextR < 0 || nextR >= 5 || nextC < 0 || nextC >= 5) {
+                    playSound('error');
+                    renderGrid('error');
+                    setStatusBanner('🚧 Eyvah! Haritanın dışına çıkamayız. Komutları düzeltip tekrar dene!', 'error');
+                    hitError = true;
+                    break;
+                }
+
+                // 2. Engele çarpma kontrolü
+                const isObstacle = currentZone.obstacles.some(o => o.r === nextR && o.c === nextC);
+                if (isObstacle) {
+                    playSound('error');
+                    renderGrid('error');
+                    setStatusBanner(`💥 Eyvah! ${currentZone.obstacleName} engeline çarptık. Başka bir yol dene!`, 'error');
+                    hitError = true;
+                    break;
+                }
+
+                // Geçerli adım: İlerle
+                animalPos = { r: nextR, c: nextC };
+                playSound('step');
+                renderGrid();
+
+                // Hedefe ulaştı mı kontrol et
+                if (animalPos.r === currentZone.target.r && animalPos.c === currentZone.target.c) {
+                    reachedTarget = true;
+                    break;
+                }
+
+                await sleep(480);
+            }
+
+            renderCommandQueue(-1);
+
+            if (reachedTarget) {
+                playSound('win');
+                setStatusBanner(`🎉 Harika! ${currentZone.animalName} hedefine ulaştı!`, 'success');
+                completedZones.add(currentZone.id);
+                document.getElementById('star-counter').textContent = `${completedZones.size} / ${ZONES.length}`;
+                
+                // Konfeti patlat
+                if (typeof confetti === 'function') {
+                    confetti({
+                        particleCount: 90,
+                        spread: 75,
+                        origin: { y: 0.6 }
+                    });
+                }
+
+                await sleep(600);
+                openWinModal();
+            } else if (!hitError) {
+                // Komutlar bitti ama hedefe henüz varamadı
+                playSound('error');
+                renderGrid('error');
+                setStatusBanner(`🤔 Komutlar bitti ama ${currentZone.targetName} hedefine henüz ulaşamadık!`, 'warning');
+                await sleep(1100);
+                animalPos = { ...currentZone.start };
+                renderGrid();
+            } else {
+                // Çarpma sonrası başlangıç noktasına geri dön
+                await sleep(1200);
+                animalPos = { ...currentZone.start };
+                renderGrid();
+            }
+
+            isRunning = false;
+            setControlsDisabled(false);
+        }
+
+        /* ----------------------------------------------------------
+         * 8. İPUCU VE KUTLAMA MODALI FONKSİYONLARI
+         * ---------------------------------------------------------- */
+        function showHint() {
+            if (isRunning || !currentZone) return;
+            playSound('click');
+            
+            // İlk 2 adımı ipucu olarak göster veya otomatik doldur
+            const hintSteps = currentZone.hintPath.map(k => DIRECTIONS[k].emoji).join(' ');
+            setStatusBanner(`💡 İpucu Yolu: ${hintSteps}`, 'warning');
+        }
+
+        function openWinModal() {
+            document.getElementById('modal-animal').textContent = currentZone.animalEmoji;
+            document.getElementById('modal-target').textContent = currentZone.targetEmoji;
+            document.getElementById('modal-title').textContent = `${currentZone.name} Tamamlandı!`;
+            document.getElementById('modal-message').textContent = currentZone.winText;
+            document.getElementById('win-modal').classList.remove('hidden');
+        }
+
+        function replayCurrentLevel() {
+            playSound('click');
+            document.getElementById('win-modal').classList.add('hidden');
+            clearCommands();
+        }
+
+        function closeModalAndGoMap() {
+            playSound('click');
+            document.getElementById('win-modal').classList.add('hidden');
+            showMapScreen();
+        }
+
+        /* ----------------------------------------------------------
+         * 9. BAŞLANGIÇ YÜKLEMESİ
+         * ---------------------------------------------------------- */
+        window.onload = function () {
+            renderMapZones();
+        };
+    </script>
+</body>
+</html>
